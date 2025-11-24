@@ -3,11 +3,11 @@
 --configurables
 vn_text_speed = 100 --characters per second
 vn_textbox_opacity = 0.25
-vn_volume_voice = 0.75
-vn_volume_music = 0.25
-vn_volume_ambient = 0.25
+vn_volume_voice = 0.5
+vn_volume_music = 1
+vn_volume_ambient = 1
 vn_volume_sfx = 0.5
-
+vn_skip_speed = 1 --smaller is faster
 
 --constants
 VN_STATE_INACTIVE = 0 --no scene playing
@@ -28,11 +28,13 @@ vn_state_index = 0 --track line of text
 vn_state_index_index = 0 --track the character in the line
 vn_text = "" --just stores current text line
 vn_line_time = 0 --tracks how long has been spent in the line. useful for animations and text reveal
+vn_delta = 0 --tracks delta
+vn_prevtime = 0 --track previous match time
 vn_voice_id = 0
 vn_music_id = 0
 vn_ambient_id = 0
 vn_sfx_id = 0
-vn_table = nil
+vn_table = {}
 vn_hud_open = true --right click to hide hud.
 vn_menu_open = false --if menu is opened.
 vn_animations = 
@@ -40,7 +42,7 @@ vn_animations =
 	background = {},
 	sprites = {}
 	--[[
-	background = {parent, name, pos1, pos2, size1, size2, color1, color2, duration, duration_remaining}
+	background = {parent, name, pos1, pos2, size1, size2, color1, color2, duration, duration_remaining, persist = false}
 	sprites =
 	{
 		{parent, name, pos1, pos2, size1, size2, color1, color2, duration, duration_remaining},
@@ -95,6 +97,7 @@ function VN_StartScene(scene_table)
 	AddTextControl("vntextbox", "vn_name", "", ANCHOR_BOTTOM_LEFT, Vec3(0, -VN_PAD), false, "Normal")
 	SetWordWrap("vntextbox", "vn_text", true)
 	SetControlFrame(control_frame)
+	VN_UpdateVolume()
 	VN_AdvanceText()
 end
 
@@ -115,12 +118,14 @@ function VN_EndScene()
 	vn_state_index = 0
 	vn_state_index_index = 0
 	vn_text = ""
-	vn_line_time = 0
+	vn_line_time = 0 
+	vn_delta = 0 
+	vn_prevtime = 0 
 	vn_voice_id = 0
 	vn_music_id = 0
 	vn_ambient_id = 0
 	vn_sfx_id = 0
-	vn_table = nil
+	vn_table = {}
 	vn_hud_open = true
 	vn_menu_open = false
 	vn_animations = 
@@ -140,14 +145,14 @@ function VN_AdvanceText()
 	vn_state = VN_STATE_RUN
 	vn_state_index = vn_state_index + 1
 	vn_state_index_index = 0
-	
+	vn_line_time = 0
 	--end vn if scene is over
 	if not vn_table[vn_state_index] then
 		VN_EndScene()
 		return
 	end
 	local line = vn_table[vn_state_index]
-	BetterLog(line)
+	--BetterLog(line)
 	
 	--set name of the speaker
 	local name = ""
@@ -164,9 +169,9 @@ function VN_AdvanceText()
 	end
 	
 	--handle voice lines
-	StopStream(vn_voice_id)
+	CancelEffect(vn_voice_id)
 	if line.voice then
-		vn_voice_id = StartStream(line.voice, vn_volume_voice)
+		vn_voice_id = SpawnEffect(line.voice, Vec3(0,0))
 	end
 	--handle music and ambience
 	if line.music then
@@ -174,12 +179,13 @@ function VN_AdvanceText()
 		vn_music_id = StartMusic(line.music, true, false)
 	end
 	if line.ambience then
-		StopStream(vn_ambient_id)
-		vn_ambient_id = StartStream(line.ambience, vn_volume_ambient)
+		CancelEffect(vn_ambient_id)
+		--vn_ambient_id = StartStream(line.ambience, vn_volume_ambient)
+		vn_ambient_id = SpawnEffect(line.ambience, Vec3(0,0))
 	end
 	--handle sfx
 	if line.sfx then
-		--StartStream(line.sfx, vn_volume_sfx)
+		SpawnEffect(line.sfx, Vec3(0,0))
 	end
 	
 	--handle background
@@ -199,6 +205,7 @@ function VN_AdvanceText()
 		local color1 = {255,255,255,0}
 		local color2 = {255,255,255,255}
 		local duration = 2
+		local persist = false
 		if line.background_table then
 			if line.background_table.pos1 then pos1 = line.background_table.pos1 end
 			if line.background_table.pos2 then pos2 = line.background_table.pos2 end
@@ -207,11 +214,26 @@ function VN_AdvanceText()
 			if line.background_table.color1 then color1 = line.background_table.color1 end
 			if line.background_table.color2 then color2 = line.background_table.color2 end
 			if line.background_table.duration then duration = line.background_table.duration end
+			if line.background_table.persist then duration = line.background_table.persist end
 		end
 		--BetterLog(color1)
 		--BetterLog(color2)
 		VN_Animator('bg', 'bg1', pos1, pos2, size1, size2, color1, color2, duration)
-		
+		vn_animations.background = 
+		{
+			parent = 'bg',
+			name = 'bg1',
+			pos1 = pos1,
+			pos2 = pos2,
+			size1 = size1,
+			size2 = size2,
+			color1 = color1,
+			color2 = color2,
+			duration = duration,
+			duration_remaining = duration,
+			persist = persist,
+		}
+		--BetterLog(vn_animations.background)
 		--handle background background image
 		--change buffer data
 		vn_prev.background = vn_current.background
@@ -271,7 +293,7 @@ function VN_Animator(parent, name, pos1, pos2, size1, size2, color1, color2, dur
 	SetControlRelativePos(parent, name, pos)
 	SetControlColour(parent, name, Colour(color[1],color[2],color[3],color[4]))
 	SetControlSize(parent, name, size)
-	--BetterLog(duration_remaining)
+	BetterLog(duration_remaining)
 	--BetterLog(parent)
 	--BetterLog(name)
 	--BetterLog(pos)
@@ -285,17 +307,19 @@ function VN_Animator(parent, name, pos1, pos2, size1, size2, color1, color2, dur
 	--BetterLog(duration)
 	--BetterLog(duration_remaining)
 	--schedule next frame
-	if duration_remaining ~= 0 then
+	--[[if duration_remaining ~= 0 then
 		ScheduleCall(0.04, VN_Animator, parent, name, pos1, pos2, size1, size2, color1, color2, duration, duration_remaining - 0.04)
-	end
+	end]]
 end
 function VN_Interrupt()
 	--interrupts all animations and text scrolling. Sets them to final state.
 	vn_state = VN_STATE_IDLE
 	SetControlText("vntextbox", "vn_text", vn_text)
 	CancelScheduledCallsOfFunc(VN_AdvanceText)
-	CancelScheduledCallsOfFunc(VN_Animator)
-	
+	--CancelScheduledCallsOfFunc(VN_Animator)
+	if vn_animations.background and vn_animations.background.duration_remaining and not vn_animations.background.persist then
+		vn_animations.background.duration_remaining = 0
+	end
 	local pos = Vec3(0,0)
 	local size = Vec3(1066,600)
 	local color = {255,255,255,255}
@@ -319,6 +343,12 @@ function VN_HideHUD()
 		SetControlRelativePos('vn', 'vntextbox', Vec3(VN_WINDOW_ANCHOR[1], VN_WINDOW_ANCHOR[2]))
 		vn_hud_open = true
 	end
+end
+function VN_UpdateVolume()
+	SetGlobalAudioParameter('volume_music', vn_volume_music)
+	SetGlobalAudioParameter('volume_ambience', vn_volume_ambient)
+	SetGlobalAudioParameter('volume_sfx', vn_volume_sfx)
+	SetGlobalAudioParameter('volume_voice', vn_volume_voice)
 end
 function VN_AddSprite(name, textures, color, count)
 	color = color or {1,1,1,1}
@@ -388,6 +418,7 @@ function OnKey(key, down)
 			VN_HideHUD()
 		end
 	end
+	
 	if Old_OnKey then
 		Old_OnKey(key, down)
 	end
@@ -397,12 +428,12 @@ if Update then
 end
 function Update(frame)
 	--skip
-	if vn_state ~= VN_STATE_INACTIVE and vn_keysheld['left control'] then
+	if vn_state ~= VN_STATE_INACTIVE and vn_keysheld['left control'] and frame % vn_skip_speed == 0 then
 		VN_AdvanceText()
 		VN_Interrupt()
 	end
 	--text reveal
-	if vn_state == VN_STATE_RUN then
+	--[[if vn_state == VN_STATE_RUN then
 		--reveal textbox
 		local text_index = vn_state_index_index
 		text_index = text_index + math.floor(vn_text_speed / frame_rate)
@@ -413,17 +444,50 @@ function Update(frame)
 		SetControlText("vntextbox", "vn_text", string.sub(vn_text, 1, text_index))
 		
 		vn_state_index_index = text_index
-	end
+	end]]
+	
 	if Old_Update then
 		Old_Update(frame)
 	end
 end
-
+if OnUpdate then
+	Old_OnUpdate = OnUpdate
+end
+function OnUpdate(fake_delta)
+	--get real delta
+	vn_delta = fake_delta - vn_prevtime 
+	vn_prevtime = fake_delta
+	--do text animation
+	vn_line_time = vn_line_time + vn_delta
+	if vn_state == VN_STATE_RUN then
+		local text_index = vn_state_index_index
+		text_index = math.floor(vn_line_time * vn_text_speed)
+		if text_index > #vn_text then
+			text_index = #vn_text
+			vn_state = VN_STATE_IDLE
+		end
+		SetControlText("vntextbox", "vn_text", string.sub(vn_text, 1, text_index))
+	end
+	--animate background
+	if vn_animations.background and vn_animations.background.duration_remaining and vn_animations.background.duration_remaining > 0 then
+		if vn_animations.background.duration_remaining < vn_delta then vn_animations.background.duration_remaining = 0 end
+		VN_Animator(vn_animations.background.parent, vn_animations.background.name, vn_animations.background.pos1, vn_animations.background.pos2, vn_animations.background.size1, vn_animations.background.size2, vn_animations.background.color1, vn_animations.background.color2, vn_animations.background.duration, vn_animations.background.duration_remaining)
+		vn_animations.background.duration_remaining = vn_animations.background.duration_remaining - vn_delta
+	end
+	
+	if Old_OnUpdate then
+		Old_OnUpdate(frame)
+	end
+end
 if OnRestart then
 	Old_OnRestart = OnRestart
 end
 function OnRestart()
 	VN_EndScene()
+	
+	if Old_OnRestart then
+		Old_OnRestart()
+	end
 end
 --[[
 Notes? idk bruh
