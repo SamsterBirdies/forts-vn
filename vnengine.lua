@@ -3,12 +3,14 @@
 --configurables
 vn_text_speed = 100 --characters per second
 vn_textbox_opacity = 0.25
-vn_volume_voice = 0.5
-vn_volume_music = 1
-vn_volume_ambient = 1
+vn_volume_voice = 1
+vn_volume_music = 0.2
+vn_volume_ambience = 0.2
 vn_volume_sfx = 0.5
 vn_skip_speed = 1 --smaller is faster
-
+vn_overlay_path = path .. "/fartsvn"
+vn_sound_system = 'stream' --Use 'stream' for simplicity, it just plays the sound file. 'effect' if you need it with effects.
+vn_sound_path = path .. "/assets/" --set to wherever the sounds are 
 --constants
 VN_STATE_INACTIVE = 0 --no scene playing
 VN_STATE_IDLE = 1 --awaiting a click. (includes animations though i wish for this to not be the case
@@ -32,7 +34,7 @@ vn_delta = 0 --tracks delta
 vn_prevtime = 0 --track previous match time
 vn_voice_id = 0
 vn_music_id = 0
-vn_ambient_id = 0
+vn_ambience_id = 0
 vn_sfx_id = 0
 vn_table = {}
 vn_hud_open = true --right click to hide hud.
@@ -87,17 +89,23 @@ function VN_StartScene(scene_table)
 	--do hud
 	local control_frame = GetControlFrame()
 	SetControlFrame(0)
+	--parent mom big mom
 	AddTextControl("", "vn", "", ANCHOR_BOTTOM_LEFT, Vec3(0, screen_height), false, "")
+	--background parent
 	AddTextControl("vn", "bg", "", ANCHOR_CENTER_CENTER, Vec3(1066 / 2, -screen_height / 2), false, "")
 	AddSpriteControl("bg", "bg0", "clear", ANCHOR_CENTER_CENTER, Vec3(1066, 600), Vec3(0, 0), false)
 	AddSpriteControl("bg", "bg1", "clear", ANCHOR_CENTER_CENTER, Vec3(1066, 600), Vec3(0, 0), false)
-	AddSpriteControl("vn", "overlay", path .. "/fartsvn", ANCHOR_TOP_LEFT, Vec3(1066, 140), Vec3(0, -140), false)
-	AddSpriteControl("vn", "vntextbox", "ui/textures/FE-Tab_foot", ANCHOR_TOP_LEFT, Vec3(666, 100), Vec3(VN_WINDOW_ANCHOR[1], VN_WINDOW_ANCHOR[2]), false)
+	--text overlay
+	AddSpriteControl("vn", "overlay", vn_overlay_path, ANCHOR_TOP_LEFT, Vec3(1066, 140), Vec3(0, -140), false)
+	--textbox parent
+	AddSpriteControl("vn", "vntextbox", "clear", ANCHOR_TOP_LEFT, Vec3(666, 100), Vec3(VN_WINDOW_ANCHOR[1], VN_WINDOW_ANCHOR[2]), false)
 	AddTextControl("vntextbox", "vn_text", "", ANCHOR_TOP_LEFT, Vec3(0, 0), false, "Normal")
 	AddTextControl("vntextbox", "vn_name", "", ANCHOR_BOTTOM_LEFT, Vec3(0, -VN_PAD), false, "Normal")
 	SetWordWrap("vntextbox", "vn_text", true)
+	
 	SetControlFrame(control_frame)
-	VN_UpdateVolume()
+	
+	--VN_UpdateVolume()
 	VN_AdvanceText()
 end
 
@@ -123,7 +131,7 @@ function VN_EndScene()
 	vn_prevtime = 0 
 	vn_voice_id = 0
 	vn_music_id = 0
-	vn_ambient_id = 0
+	vn_ambience_id = 0
 	vn_sfx_id = 0
 	vn_table = {}
 	vn_hud_open = true
@@ -168,24 +176,49 @@ function VN_AdvanceText()
 		vn_text = ''
 	end
 	
-	--handle voice lines
-	CancelEffect(vn_voice_id)
-	if line.voice then
-		vn_voice_id = SpawnEffect(line.voice, Vec3(0,0))
-	end
-	--handle music and ambience
-	if line.music then
-		StopStream(vn_music_id)
-		vn_music_id = StartMusic(line.music, true, false)
-	end
-	if line.ambience then
-		CancelEffect(vn_ambient_id)
-		--vn_ambient_id = StartStream(line.ambience, vn_volume_ambient)
-		vn_ambient_id = SpawnEffect(line.ambience, Vec3(0,0))
-	end
-	--handle sfx
-	if line.sfx then
-		SpawnEffect(line.sfx, Vec3(0,0))
+	--handle sounds
+	if vn_sound_system == 'effect' then
+		--effect based sound spawning.
+		CancelEffect(vn_voice_id)
+		if line.voice then
+			vn_voice_id = SpawnEffect(vn_sound_path .. line.voice, Vec3(0,0))
+		end
+		if line.music then
+			CancelEffect(vn_music_id)
+			vn_music_id = SpawnEffect(vn_sound_path .. line.music, Vec3(0,0))
+		end
+		if line.ambience then
+			CancelEffect(vn_ambience_id)
+			vn_ambience_id = SpawnEffect(vn_sound_path .. line.ambience, Vec3(0,0))
+		end
+		if line.sfx then
+			SpawnEffect(vn_sound_path .. line.sfx, Vec3(0,0))
+		end
+	else --stream based sound spawining. 
+		StopStream(vn_voice_id)
+		if line.voice then
+			vn_voice_id = StartStream(vn_sound_path .. line.voice, vn_volume_voice)
+		end
+		if line.music then
+			FadeStream(vn_music_id, 1)
+			vn_music_id = StartStream(vn_sound_path .. line.music, vn_volume_music)
+			--vn_music_id = StartMusic(vn_sound_path .. line.music, true, false)
+			--AdjustStreamVolume(vn_music_id, 0, vn_volume_music)
+			vn_current.music = line.music
+		end
+		if line.ambience then
+			FadeStream(vn_ambience_id, 1.5)
+			vn_ambience_id = StartStream(vn_sound_path .. line.ambience, 0)
+			vn_current.ambience = line.ambience
+			local duration = 1.5
+			if line.ambiencefade then
+				duration = line.ambiencefade
+			end
+			AdjustStreamVolume(vn_ambience_id, duration, vn_volume_ambience)
+		end
+		if line.sfx then
+			StartStream(vn_sound_path .. line.sfx, vn_volume_sfx)
+		end
 	end
 	
 	--handle background
@@ -214,7 +247,7 @@ function VN_AdvanceText()
 			if line.background_table.color1 then color1 = line.background_table.color1 end
 			if line.background_table.color2 then color2 = line.background_table.color2 end
 			if line.background_table.duration then duration = line.background_table.duration end
-			if line.background_table.persist then duration = line.background_table.persist end
+			if line.background_table.persist then persist = line.background_table.persist end
 		end
 		--BetterLog(color1)
 		--BetterLog(color2)
@@ -293,7 +326,7 @@ function VN_Animator(parent, name, pos1, pos2, size1, size2, color1, color2, dur
 	SetControlRelativePos(parent, name, pos)
 	SetControlColour(parent, name, Colour(color[1],color[2],color[3],color[4]))
 	SetControlSize(parent, name, size)
-	BetterLog(duration_remaining)
+	--BetterLog(duration_remaining)
 	--BetterLog(parent)
 	--BetterLog(name)
 	--BetterLog(pos)
@@ -316,22 +349,23 @@ function VN_Interrupt()
 	vn_state = VN_STATE_IDLE
 	SetControlText("vntextbox", "vn_text", vn_text)
 	CancelScheduledCallsOfFunc(VN_AdvanceText)
-	--CancelScheduledCallsOfFunc(VN_Animator)
+
+	--interrupt background animation but not if persist value is true.
 	if vn_animations.background and vn_animations.background.duration_remaining and not vn_animations.background.persist then
 		vn_animations.background.duration_remaining = 0
+		local pos = Vec3(0,0)
+		local size = Vec3(1066,600)
+		local color = {255,255,255,255}
+		if vn_current.background_table then
+			if vn_current.background_table.pos2 then pos = vn_current.background_table.pos2 end
+			if vn_current.background_table.size2 then size = vn_current.background_table.size2 end
+			if vn_current.background_table.color2 then color = vn_current.background_table.color2 end
+		end
+	
+		SetControlRelativePos('bg', 'bg1', pos)
+		SetControlColour('bg', 'bg1', Colour(color[1],color[2],color[3],color[4]))
+		SetControlSize('bg', 'bg1', size)
 	end
-	local pos = Vec3(0,0)
-	local size = Vec3(1066,600)
-	local color = {255,255,255,255}
-	if vn_current.background_table then
-		if vn_current.background_table.pos2 then pos = vn_current.background_table.pos2 end
-		if vn_current.background_table.size2 then size = vn_current.background_table.size2 end
-		if vn_current.background_table.color2 then color = vn_current.background_table.color2 end
-	end
-	SetControlRelativePos('bg', 'bg1', pos)
-	SetControlColour('bg', 'bg1', Colour(color[1],color[2],color[3],color[4]))
-	--BetterLog(size)
-	SetControlSize('bg', 'bg1', size)
 end
 function VN_HideHUD()
 	if vn_hud_open then
@@ -345,10 +379,16 @@ function VN_HideHUD()
 	end
 end
 function VN_UpdateVolume()
+	--fmod events
 	SetGlobalAudioParameter('volume_music', vn_volume_music)
-	SetGlobalAudioParameter('volume_ambience', vn_volume_ambient)
+	SetGlobalAudioParameter('volume_ambience', vn_volume_ambience)
 	SetGlobalAudioParameter('volume_sfx', vn_volume_sfx)
 	SetGlobalAudioParameter('volume_voice', vn_volume_voice)
+	--streams
+	AdjustStreamVolume(vn_music_id, 0, vn_volume_music)
+	AdjustStreamVolume(vn_ambience_id, 0, vn_volume_ambience)
+	AdjustStreamVolume(vn_voice_id, 0, vn_volume_voice)
+	AdjustStreamVolume(vn_sfx_id, 0, vn_volume_sfx)
 end
 function VN_AddSprite(name, textures, color, count)
 	color = color or {1,1,1,1}
@@ -489,55 +529,22 @@ function OnRestart()
 		Old_OnRestart()
 	end
 end
+if OnStreamComplete then
+	Old_OnStreamComplete = OnStreamComplete
+end
+function OnStreamComplete(seriesId, fromReplay)
+	if seriesId == vn_music_id then
+		vn_music_id = StartStream(vn_sound_path .. vn_current.music, vn_volume_music)
+	elseif seriesId == vn_ambience_id then
+		vn_ambience_id = StartStream(vn_sound_path .. vn_current.ambience, vn_volume_ambience)
+	end
+	if Old_OnStreamComplete then
+		Old_OnStreamComplete()
+	end
+end
 --[[
 Notes? idk bruh
 
 perhaps scenes should be defined like this
-
-poop_scene =
-{
-	{
-		name = 'Cute girl?', --name to display in corner
-		text = 'So I looked up at the sky...', --text to display
-		background = crap.png, --background image to put
-		background_table = --to pan image around
-		{
-			pos1 = Vec3(0,0,0), 
-			pos2 = Vec3(10,20,3),
-			size1 = Vec3(1066,600),
-			size2 = Vec3(1066,600),
-			color1 = {1,1,1,1},
-			color2 = {1,1,1,1},
-			duration = 3,
-		}, 
-		voice = line1.mp3, --voiceline to play
-		music = chillmusic.mp3, --music to play
-		ambience = water.mp3, --ambience to play
-		sfx = piano.mp3, --sound effect to play
-		corner = smile.png, --idk what the face things at the lower left are called
-		autoadvance = -1, --automatically advances after a time
-		sprites =  --table of sprites, their position, rotation, size, etc
-		{ 
-			{
-				sprite = cutegirl_smiling.png,
-				pos1 = {0,0,0},
-				pos2 = {0,0,0},
-				color1 = {1,1,1,1},
-				color2 = {1,1,1,1},
-				duration = 0,
-			}
-		},
-		events = { }, --timed events like sound effects, animations, etc.
-	},
-	{
-		--name, background, sprites, and music are inherited from previous lines.
-		--corner is inherited if name is the same as previous line.
-		text = 'A big butt had eclipsed the sun', 
-	},
-	{
-		text = 'Some girl started tugging at my shoulder',
-		sprites = {{sprite = cutegirl_frowning.png}} --defaults are used for other values
-	},
-}
 
 --]]
