@@ -375,6 +375,11 @@ function VN_Animator(parent, name, pos1, pos2, size1, size2, color1, color2, dur
 	if duration_remaining < 0.04 then
 		duration_remaining = 0
 	end
+	--fix divide by zero issue
+	if duration == 0 then
+		duration = 1
+		duration_remaining = 0
+	end
 	--interpolate position
 	local pos = VN_Interpolate(pos1, pos2, (duration - duration_remaining) / duration)
 	--interpolate size
