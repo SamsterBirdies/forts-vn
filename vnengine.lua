@@ -91,10 +91,15 @@ function VN_StartScene(scene_table)
 	SetControlFrame(0)
 	--parent mom big mom
 	AddTextControl("", "vn", "", ANCHOR_BOTTOM_LEFT, Vec3(0, screen_height), false, "")
+	--to render sprites above background
+	AddTextControl("vn", "vnsprites", "", ANCHOR_BOTTOM_LEFT, Vec3(0, 0), false, "")
 	--background parent
 	AddTextControl("vn", "bg", "", ANCHOR_CENTER_CENTER, Vec3(1066 / 2, -screen_height / 2), false, "")
 	AddSpriteControl("bg", "bg0", "clear", ANCHOR_CENTER_CENTER, Vec3(1066, 600), Vec3(0, 0), false)
 	AddSpriteControl("bg", "bg1", "clear", ANCHOR_CENTER_CENTER, Vec3(1066, 600), Vec3(0, 0), false)
+	--sprites parent
+	AddTextControl("vnsprites", "sprites", "", ANCHOR_CENTER_CENTER, Vec3(0, -screen_height), false, "")
+	--AddSpriteControl("vn", "sprites", "clear", ANCHOR_TOP_LEFT, Vec3(1066, 600), Vec3(-1066 / 2, -screen_height / 2), false)
 	--text overlay
 	AddSpriteControl("vn", "overlay", vn_overlay_path, ANCHOR_TOP_LEFT, Vec3(1066, 140), Vec3(0, -140), false)
 	--textbox parent
@@ -105,7 +110,7 @@ function VN_StartScene(scene_table)
 	
 	SetControlFrame(control_frame)
 	
-	--VN_UpdateVolume()
+	VN_UpdateVolume()
 	VN_AdvanceText()
 end
 
@@ -290,6 +295,37 @@ function VN_AdvanceText()
 		SetControlColour('bg', 'bg0', Colour(color[1],color[2],color[3],color[4]))
 		SetControlSize('bg', 'bg0', size)
 	end
+	--handle sprites
+	if line.sprites then
+		--delete previous sprites
+		vn_animations.sprites = {}
+		local control_frame = GetControlFrame()
+		SetControlFrame(0)
+		DeleteControl('vnsprites', 'sprites')
+		AddTextControl("vnsprites", "sprites", "", ANCHOR_CENTER_CENTER, Vec3(0, -screen_height), false, "")
+		--add sprites
+		for k, v in pairs(line.sprites) do
+			AddSpriteControl("sprites", tostring(k), v.sprite, ANCHOR_CENTER_CENTER, v.pos1 or v.pos2 or Vec3(0, 0), v.size1 or v.size2 or Vec3(300, 600), false)
+			SetSpriteAdditive("sprites", tostring(k), IsSpriteAdditive(v.sprite))
+			table.insert(vn_animations.sprites, 
+				{
+					parent = 'sprites',
+					name = tostring(k),
+					pos1 = v.pos1 or v.pos2 or Vec3(0,0),
+					pos2 = v.pos2 or v.pos1 or Vec3(0,0),
+					size1 = v.size1 or v.size2 or Vec3(300,600),
+					size2 = v.size2 or v.size1 or Vec3(300,600),
+					color1 = v.color1 or {255,255,255,0},
+					color2 = v.color2 or {255,255,255,255},
+					duration = v.duration or 0.5,
+					duration_remaining = v.duration or 0.5,
+					persist = v.persist or false,
+				}
+			)
+			VN_Animator('sprites', tostring(k), vn_animations.sprites[k].pos1, vn_animations.sprites[k].pos2, vn_animations.sprites[k].size1, vn_animations.sprites[k].size2, vn_animations.sprites[k].color1, vn_animations.sprites[k].color2, vn_animations.sprites[k].duration)
+		end
+		SetControlFrame(control_frame)
+	end
 	
 	--handle auto advance
 	if line.autoadvance and line.autoadvance > 0 then
@@ -323,9 +359,12 @@ function VN_Animator(parent, name, pos1, pos2, size1, size2, color1, color2, dur
 	--interpolate color
 	local color = VN_Interpolate(color1, color2, (duration - duration_remaining) / duration)
 	--set the stuff
+	local control_frame = GetControlFrame()
+	SetControlFrame(0)
 	SetControlRelativePos(parent, name, pos)
 	SetControlColour(parent, name, Colour(color[1],color[2],color[3],color[4]))
 	SetControlSize(parent, name, size)
+	SetControlFrame(control_frame)
 	--BetterLog(duration_remaining)
 	--BetterLog(parent)
 	--BetterLog(name)
@@ -361,10 +400,26 @@ function VN_Interrupt()
 			if vn_current.background_table.size2 then size = vn_current.background_table.size2 end
 			if vn_current.background_table.color2 then color = vn_current.background_table.color2 end
 		end
-	
+		local control_frame = GetControlFrame()
+		SetControlFrame(0)
 		SetControlRelativePos('bg', 'bg1', pos)
 		SetControlColour('bg', 'bg1', Colour(color[1],color[2],color[3],color[4]))
 		SetControlSize('bg', 'bg1', size)
+		SetControlFrame(control_frame)
+	end
+	--interrupt sprite animation if not persist
+	if vn_animations.sprites then
+		for k, v in pairs(vn_animations.sprites) do
+			if not v.persist then
+				v.duration_remaining = 0
+				local control_frame = GetControlFrame()
+				SetControlFrame(0)
+				SetControlRelativePos('sprites', tostring(k), v.pos2)
+				SetControlColour('sprites', tostring(k), Colour(v.color2[1],v.color2[2],v.color2[3],v.color2[4]))
+				SetControlSize('sprites', tostring(k), v.size2)
+				SetControlFrame(control_frame)
+			end
+		end
 	end
 end
 function VN_HideHUD()
@@ -390,9 +445,10 @@ function VN_UpdateVolume()
 	AdjustStreamVolume(vn_voice_id, 0, vn_volume_voice)
 	AdjustStreamVolume(vn_sfx_id, 0, vn_volume_sfx)
 end
-function VN_AddSprite(name, textures, color, count)
+function VN_AddSprite(name, textures, color, count, additive)
 	color = color or {1,1,1,1}
 	count = count or false
+	additive = additive or false
 	spriter = 
 	{
 		Name = name,
@@ -434,7 +490,7 @@ function IsSpriteAdditive(name)
 end
 --might as well add some basic sprites
 VN_AddSprite('black', 'ui/textures/FE-Panel', {0,0,0,1})
-VN_AddSprite('white', 'ui/textures/FE-Panel')
+VN_AddSprite('white', 'ui/textures/FE-Panel', nil, nil, true)
 VN_AddSprite('clear', 'ui/textures/FE-Panel', {0,0,0,0})
 --event hooks
 if OnKey then
@@ -514,7 +570,16 @@ function OnUpdate(fake_delta)
 		VN_Animator(vn_animations.background.parent, vn_animations.background.name, vn_animations.background.pos1, vn_animations.background.pos2, vn_animations.background.size1, vn_animations.background.size2, vn_animations.background.color1, vn_animations.background.color2, vn_animations.background.duration, vn_animations.background.duration_remaining)
 		vn_animations.background.duration_remaining = vn_animations.background.duration_remaining - vn_delta
 	end
-	
+	--animate sprites
+	if vn_animations.sprites then
+		for k, v in pairs(vn_animations.sprites) do
+			if v.duration_remaining > 0 then
+				if v.duration_remaining < vn_delta then v.duration_remaining = 0 end
+				VN_Animator('sprites', tostring(k), v.pos1, v.pos2, v.size1, v.size2, v.color1, v.color2, v.duration, v.duration_remaining)
+				v.duration_remaining = v.duration_remaining - vn_delta
+			end
+		end
+	end
 	if Old_OnUpdate then
 		Old_OnUpdate(frame)
 	end
