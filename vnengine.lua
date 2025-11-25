@@ -159,6 +159,7 @@ function VN_AdvanceText()
 	vn_state_index = vn_state_index + 1
 	vn_state_index_index = 0
 	vn_line_time = 0
+
 	--end vn if scene is over
 	if not vn_table[vn_state_index] then
 		VN_EndScene()
@@ -180,7 +181,7 @@ function VN_AdvanceText()
 	else
 		vn_text = ''
 	end
-	
+	vn_current.text = vn_text
 	--handle sounds
 	if vn_sound_system == 'effect' then
 		--effect based sound spawning.
@@ -242,11 +243,18 @@ function VN_AdvanceText()
 		local size2 = Vec3(1066,600)
 		local color1 = {255,255,255,0}
 		local color2 = {255,255,255,255}
-		local duration = 2
+		local duration = 1
 		local persist = false
 		if line.background_table then
+			pos1 = line.background_table.pos1 or Vec3(0,0)
+			pos2 = line.background_table.pos2 or line.background_table.pos1 or Vec3(0,0)
+			size1 = line.background_table.size1 or Vec3(1066,600)
+			size2 = line.background_table.size2 or line.background_table.size1 or Vec3(1066,600)
+			color1 = {255,255,255,0}
+			color2 = {255,255,255,255}
+			duration = 1
+			persist = false
 			if line.background_table.pos1 then pos1 = line.background_table.pos1 end
-			if line.background_table.pos2 then pos2 = line.background_table.pos2 end
 			if line.background_table.size1 then size1 = line.background_table.size1 end
 			if line.background_table.size2 then size2 = line.background_table.size2 end
 			if line.background_table.color1 then color1 = line.background_table.color1 end
@@ -341,9 +349,8 @@ function VN_AdvanceText()
 	
 	--movie player
 	if line.movie then
-		
-		PlayMovie('', 'Movie', line.movie)
 		vn_state = VN_STATE_VIDEO
+		PlayMovie('', 'Movie', line.movie)
 		Pause(false)
 		ShowControl( '', 'Movie', true)
 	end
@@ -408,7 +415,19 @@ function VN_Interrupt()
 	--interrupt background animation but not if persist value is true.
 	if vn_animations.background and vn_animations.background.duration_remaining and not vn_animations.background.persist then
 		vn_animations.background.duration_remaining = 0
-		local pos = Vec3(0,0)
+		VN_Animator(
+			vn_animations.background.parent,
+			vn_animations.background.name,
+			vn_animations.background.pos1,
+			vn_animations.background.pos2,
+			vn_animations.background.size1,
+			vn_animations.background.size2,
+			vn_animations.background.color1,
+			vn_animations.background.color2,
+			vn_animations.background.duration,
+			0
+		)
+		--[[local pos = Vec3(0,0)
 		local size = Vec3(1066,600)
 		local color = {255,255,255,255}
 		if vn_current.background_table then
@@ -421,7 +440,7 @@ function VN_Interrupt()
 		SetControlRelativePos('bg', 'bg1', pos)
 		SetControlColour('bg', 'bg1', Colour(color[1],color[2],color[3],color[4]))
 		SetControlSize('bg', 'bg1', size)
-		SetControlFrame(control_frame)
+		SetControlFrame(control_frame)]]
 	end
 	--interrupt sprite animation if not persist
 	if vn_animations.sprites then
@@ -541,7 +560,22 @@ function OnKey(key, down)
 			end
 		end
 	end
-	
+	--debug button
+	if key == '/' and down then
+		Log('-=-=--=-=-=- Dumping info at index '.. tostring(vn_state_index)..' -=-=-=-=-=-=-')
+		Log('vn_state: ' .. tostring(vn_state))
+		Log('vn_current:')
+		BetterLog(vn_current)
+		Log('vn_prev:')
+		BetterLog(vn_prev)
+		Log('vn_animations:')
+		BetterLog(vn_animations)
+		Log('sound ids')
+		BetterLog(vn_voice_id)
+		BetterLog(vn_music_id)
+		BetterLog(vn_ambience_id)
+		BetterLog(vn_sfx_id)
+	end
 	if Old_OnKey then
 		Old_OnKey(key, down)
 	end
@@ -550,6 +584,7 @@ if Update then
 	Old_Update = Update
 end
 function Update(frame)
+	--BetterLog(vn_state)
 	--skip
 	if vn_state == VN_STATE_VIDEO then
 		local progress = GetMovieProgress('', 'Movie')
