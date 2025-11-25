@@ -331,6 +331,22 @@ function VN_AdvanceText()
 	if line.autoadvance and line.autoadvance > 0 then
 		ScheduleCall(line.autoadvance, VN_AdvanceText)
 	end
+	
+	--hud toggler
+	if line.hidehud then
+		VN_HideHUD(true)
+	else
+		VN_HideHUD(false)
+	end
+	
+	--movie player
+	if line.movie then
+		
+		PlayMovie('', 'Movie', line.movie)
+		vn_state = VN_STATE_VIDEO
+		Pause(false)
+		ShowControl( '', 'Movie', true)
+	end
 end
 
 
@@ -422,8 +438,10 @@ function VN_Interrupt()
 		end
 	end
 end
-function VN_HideHUD()
-	if vn_hud_open then
+function VN_HideHUD(enable)
+	local control_frame = GetControlFrame()
+	SetControlFrame(0)
+	if enable then
 		SetControlAbsolutePos('vn', 'overlay', Vec3(0, 9000))
 		SetControlAbsolutePos('vn', 'vntextbox', Vec3(0, 9000))
 		vn_hud_open = false
@@ -432,6 +450,7 @@ function VN_HideHUD()
 		SetControlRelativePos('vn', 'vntextbox', Vec3(VN_WINDOW_ANCHOR[1], VN_WINDOW_ANCHOR[2]))
 		vn_hud_open = true
 	end
+	SetControlFrame(control_frame)
 end
 function VN_UpdateVolume()
 	--fmod events
@@ -506,12 +525,20 @@ function OnKey(key, down)
 		elseif vn_state == VN_STATE_RUN then
 			--if text is scrolling then skip revealing the text and skip animations
 			VN_Interrupt()
+		elseif vn_state == VN_STATE_VIDEO then
+			EndMovie('', 'Movie')
+			ShowControl('', 'Movie', false)
+			VN_AdvanceText()
 		end
 	end
 	if key == "mouse right" and down then
 		if vn_state == VN_STATE_IDLE or vn_state == VN_STATE_RUN then
 			--toggle hud showing
-			VN_HideHUD()
+			if vn_hud_open then
+				VN_HideHUD(true)
+			else
+				VN_HideHUD(false)
+			end
 		end
 	end
 	
@@ -524,23 +551,19 @@ if Update then
 end
 function Update(frame)
 	--skip
-	if vn_state ~= VN_STATE_INACTIVE and vn_keysheld['left control'] and frame % vn_skip_speed == 0 then
+	if vn_state == VN_STATE_VIDEO then
+		local progress = GetMovieProgress('', 'Movie')
+		if progress == 1 then
+			EndMovie('', 'Movie')
+			ShowControl('', 'Movie', false)
+			VN_AdvanceText()
+		end
+	elseif vn_state ~= VN_STATE_INACTIVE and vn_keysheld['left control'] and frame % vn_skip_speed == 0 then
 		VN_AdvanceText()
 		VN_Interrupt()
 	end
-	--text reveal
-	--[[if vn_state == VN_STATE_RUN then
-		--reveal textbox
-		local text_index = vn_state_index_index
-		text_index = text_index + math.floor(vn_text_speed / frame_rate)
-		if text_index > #vn_text then
-			text_index = #vn_text
-			vn_state = VN_STATE_IDLE
-		end
-		SetControlText("vntextbox", "vn_text", string.sub(vn_text, 1, text_index))
-		
-		vn_state_index_index = text_index
-	end]]
+	--movie thing
+	
 	
 	if Old_Update then
 		Old_Update(frame)
@@ -607,6 +630,7 @@ function OnStreamComplete(seriesId, fromReplay)
 		Old_OnStreamComplete()
 	end
 end
+
 --[[
 Notes? idk bruh
 
