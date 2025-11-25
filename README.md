@@ -25,6 +25,7 @@ dofile(path .. "/vnengine.lua')
 
 ## Scene table
 The VN will play through a table containing data for each line.
+I recommend creating your own functions to help generate the background_table and sprites tables. This will make it less tedious.
 Below is an example scene table covering simple and complex entries:
 ```lua
 scene1 =
@@ -77,6 +78,3 @@ scene1 =
   { movie = path .. "/assets/OP.ogv", hidehud = true}, --plays a video, advanced upon completion
 }
 ```
-I recommend creating your own functions to help generate the background_table and sprites tables. This will make it less tedious.
-
-##
