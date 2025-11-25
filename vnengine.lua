@@ -408,7 +408,9 @@ function VN_Animator(parent, name, pos1, pos2, size1, size2, color1, color2, dur
 end
 function VN_Interrupt()
 	--interrupts all animations and text scrolling. Sets them to final state.
-	vn_state = VN_STATE_IDLE
+	if vn_state == VN_STATE_RUN then
+		vn_state = VN_STATE_IDLE
+	end
 	SetControlText("vntextbox", "vn_text", vn_text)
 	CancelScheduledCallsOfFunc(VN_AdvanceText)
 
