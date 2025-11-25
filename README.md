@@ -74,7 +74,7 @@ scene1 =
       },
     }
   },
-  { movie = path .. "/assets/OP.ogv", hidehud = true}, --plays a video, automatically advances once its over.
+  { movie = path .. "/assets/OP.ogv", hidehud = true}, --plays a video, advanced upon completion
 }
 ```
 I recommend creating your own functions to help generate the background_table and sprites tables. This will make it less tedious.
