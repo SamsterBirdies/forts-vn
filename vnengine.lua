@@ -261,7 +261,12 @@ function VN_AdvanceText()
 			if line.background_table.color2 then color2 = line.background_table.color2 end
 			if line.background_table.duration then duration = line.background_table.duration end
 			if line.background_table.persist then persist = line.background_table.persist end
+			--change buffer data
 		end
+		vn_prev.background = vn_current.background
+		vn_prev.background_table = vn_current.background_table
+		vn_current.background = background
+		vn_current.background_table = line.background_table or {}
 		--BetterLog(color1)
 		--BetterLog(color2)
 		VN_Animator('bg', 'bg1', pos1, pos2, size1, size2, color1, color2, duration)
@@ -281,11 +286,7 @@ function VN_AdvanceText()
 		}
 		--BetterLog(vn_animations.background)
 		--handle background background image
-		--change buffer data
-		vn_prev.background = vn_current.background
-		vn_prev.background_table = vn_current.background_table
-		vn_current.background = background
-		vn_current.background_table = line.background_table or vn_current.background_table
+		
 		--move previous sprite to the behind thingie
 		--BetterLog(vn_prev.background)
 		SetControlSpriteByParent('bg', 'bg0', vn_prev.background)
