@@ -295,9 +295,9 @@ function VN_AdvanceText()
 		local size = Vec3(1066,600)
 		local color = {255,255,255,255}
 		if vn_prev.background_table then
-			if vn_prev.background_table.pos2 then pos2 = vn_prev.background_table.pos2 end
-			if vn_prev.background_table.size2 then size2 = vn_prev.background_table.size2 end
-			if vn_prev.background_table.color2 then color2 = vn_prev.background_table.color2 end
+			if vn_prev.background_table.pos2 then pos = vn_prev.background_table.pos2 end
+			if vn_prev.background_table.size2 then size = vn_prev.background_table.size2 end
+			if vn_prev.background_table.color2 then color = vn_prev.background_table.color2 end
 		end
 		SetControlRelativePos('bg', 'bg0', pos)
 		SetControlColour('bg', 'bg0', Colour(color[1],color[2],color[3],color[4]))
