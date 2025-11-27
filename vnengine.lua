@@ -8,7 +8,8 @@ vn_volume_music = 0.2
 vn_volume_ambience = 0.2
 vn_volume_sfx = 0.5
 vn_skip_speed = 1 --smaller is faster
-vn_overlay_path = path .. "/fartsvn"
+vn_auto_quotemarks = false --automatically add quotations marks to named lines
+vn_overlay_path = path .. "/overlay"
 vn_sound_system = 'stream' --Use 'stream' for simplicity, it just plays the sound file. 'effect' if you need it with effects.
 vn_sound_path = path .. "/assets/" --set to wherever the sounds are 
 --constants
@@ -355,6 +356,11 @@ function VN_AdvanceText()
 		Pause(false)
 		ShowControl( '', 'Movie', true)
 	end
+	
+	--function handler
+	if line.func then
+		line.func()
+	end
 end
 
 
@@ -674,9 +680,27 @@ function OnStreamComplete(seriesId, fromReplay)
 	end
 end
 
---[[
-Notes? idk bruh
-
-perhaps scenes should be defined like this
-
---]]
+--effect functions
+function VN_ScreenShake(length, intensity)
+	length = length or 1
+	length = math.floor(length * 25)
+	intensity = intensity or 50
+	for i = 1, length do
+		if i == length then
+			ScheduleCall(0.04 * i, VN_Shake, 0)
+		else
+			ScheduleCall(0.04 * i, VN_Shake, intensity / i)
+		end
+	end
+end
+function VN_Shake(intensity)
+	local posx = GetRandomFloatLocal(-intensity, intensity)
+	local posy = GetRandomFloatLocal(-intensity, intensity)
+	SetControlRelativePos('vn', 'bg', Vec3((1066 / 2) + posx, (-screen_height / 2) + posy) )
+	posx = GetRandomFloatLocal(-intensity, intensity)
+	posy = GetRandomFloatLocal(-intensity, intensity)
+	SetControlRelativePos('vn', 'overlay', Vec3(0 + posx, -140 + posy))
+	posx = GetRandomFloatLocal(-intensity, intensity)
+	posy = GetRandomFloatLocal(-intensity, intensity)
+	SetControlRelativePos('vn', 'vntextbox', Vec3(VN_WINDOW_ANCHOR[1] + posx, VN_WINDOW_ANCHOR[2] + posy))
+end
