@@ -112,6 +112,8 @@ function VN_StartScene(scene_table)
 	AddTextControl("vntextbox", "vn_text", "", ANCHOR_TOP_LEFT, Vec3(0, 0), false, "Normal")
 	AddTextControl("vntextbox", "vn_name", "", ANCHOR_BOTTOM_LEFT, Vec3(0, -VN_PAD), false, "Normal")
 	SetWordWrap("vntextbox", "vn_text", true)
+	--hide bottom on screens not 16:9
+	AddSpriteControl("vn", "aspectblock", 'black', ANCHOR_TOP_LEFT, Vec3(1067, 1067), Vec3(0, 0), false)
 	
 	SetControlFrame(control_frame)
 	
