@@ -1,5 +1,6 @@
 # forts-vn
 A VN engine script to play visual novels within Forts
+A demonstration of the engine here: https://steamcommunity.com/sharedfiles/filedetails/?id=3613086840
 
 ## Instructions
 * Include the script with a dofile. Place it after all event functions because it hooks them.
