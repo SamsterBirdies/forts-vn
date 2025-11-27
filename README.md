@@ -78,3 +78,6 @@ scene1 =
   { movie = path .. "/assets/OP.ogv", hidehud = true}, --plays a video, advanced upon completion
 }
 ```
+## Effects/custom functions
+For a scene entry you can do `func = MyFunction` and the function will be called when advancing to that line.
+Included is an `effects.lua` file containing some basic effects. `dofile` this before the scene table.
