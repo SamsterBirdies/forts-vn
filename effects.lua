@@ -1,3 +1,8 @@
+--[[
+List of functions:
+	VN_ScreenShake
+	
+]]
 --effect functions
 function VN_ScreenShake(length, intensity)
 	length = length or 1
