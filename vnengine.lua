@@ -95,7 +95,8 @@ function VN_StartScene(scene_table)
 	--parent mom big mom
 	AddTextControl("", "vn", "", ANCHOR_BOTTOM_LEFT, Vec3(0, screen_height), false, "")
 	--render buttons
-	AddTextControl("vn", "vnbuttons", "", ANCHOR_TOP_LEFT, Vec3(533, -400), false, "")
+	AddTextControl("vn", "vnbuttons0", "", ANCHOR_TOP_LEFT, Vec3(533, -400), false, "")
+	AddTextControl("vnbuttons0", "vnbuttons", "", ANCHOR_TOP_LEFT, Vec3(0, -0), false, "")
 	--to render sprites above background
 	AddTextControl("vn", "vnsprites", "", ANCHOR_BOTTOM_LEFT, Vec3(0, 0), false, "")
 	--background parent
