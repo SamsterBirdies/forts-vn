@@ -12,11 +12,13 @@ vn_auto_quotemarks = false --automatically add quotations marks to named lines
 vn_overlay_path = path .. "/overlay"
 vn_sound_system = 'stream' --Use 'stream' for simplicity, it just plays the sound file. 'effect' if you need it with effects.
 vn_sound_path = path .. "/assets/" --set to wherever the sounds are 
+vn_button_sprite = "defaultbutton" --set the default button sprite.
 --constants
 VN_STATE_INACTIVE = 0 --no scene playing
 VN_STATE_IDLE = 1 --awaiting a click. (includes animations though i wish for this to not be the case
 VN_STATE_RUN = 2 --text is revealing
 VN_STATE_VIDEO = 3 --movies playing
+VN_STATE_CHOICE = 4 --disable advancing controls.
 
 VN_WINDOW_ANCHOR = {200, -100}
 VN_PAD = 20
@@ -92,17 +94,19 @@ function VN_StartScene(scene_table)
 	SetControlFrame(0)
 	--parent mom big mom
 	AddTextControl("", "vn", "", ANCHOR_BOTTOM_LEFT, Vec3(0, screen_height), false, "")
+	--render buttons
+	AddTextControl("vn", "vnbuttons", "", ANCHOR_TOP_LEFT, Vec3(533, -400), false, "")
 	--to render sprites above background
 	AddTextControl("vn", "vnsprites", "", ANCHOR_BOTTOM_LEFT, Vec3(0, 0), false, "")
 	--background parent
 	AddTextControl("vn", "bg", "", ANCHOR_CENTER_CENTER, Vec3(1066 / 2, -screen_height / 2), false, "")
-	AddSpriteControl("bg", "bg0", "clear", ANCHOR_CENTER_CENTER, Vec3(1066, 600), Vec3(0, 0), false)
-	AddSpriteControl("bg", "bg1", "clear", ANCHOR_CENTER_CENTER, Vec3(1066, 600), Vec3(0, 0), false)
+	AddSpriteControl("bg", "bg0", "clear", ANCHOR_CENTER_CENTER, Vec3(1067, 600), Vec3(0, 0), false)
+	AddSpriteControl("bg", "bg1", "clear", ANCHOR_CENTER_CENTER, Vec3(1067, 600), Vec3(0, 0), false)
 	--sprites parent
 	AddTextControl("vnsprites", "sprites", "", ANCHOR_CENTER_CENTER, Vec3(0, -screen_height), false, "")
 	--AddSpriteControl("vn", "sprites", "clear", ANCHOR_TOP_LEFT, Vec3(1066, 600), Vec3(-1066 / 2, -screen_height / 2), false)
 	--text overlay
-	AddSpriteControl("vn", "overlay", vn_overlay_path, ANCHOR_TOP_LEFT, Vec3(1066, 140), Vec3(0, -140), false)
+	AddSpriteControl("vn", "overlay", vn_overlay_path, ANCHOR_TOP_LEFT, Vec3(1067, 140), Vec3(0, -140), false)
 	--textbox parent
 	AddSpriteControl("vn", "vntextbox", "clear", ANCHOR_TOP_LEFT, Vec3(666, 100), Vec3(VN_WINDOW_ANCHOR[1], VN_WINDOW_ANCHOR[2]), false)
 	AddTextControl("vntextbox", "vn_text", "", ANCHOR_TOP_LEFT, Vec3(0, 0), false, "Normal")
@@ -240,8 +244,8 @@ function VN_AdvanceText()
 		--setup the animator
 		local pos1 = Vec3(0,0)
 		local pos2 = Vec3(0,0)
-		local size1 = Vec3(1066,600)
-		local size2 = Vec3(1066,600)
+		local size1 = Vec3(1067,600)
+		local size2 = Vec3(1067,600)
 		local color1 = {255,255,255,0}
 		local color2 = {255,255,255,255}
 		local duration = 1
@@ -249,8 +253,8 @@ function VN_AdvanceText()
 		if line.background_table then
 			pos1 = line.background_table.pos1 or Vec3(0,0)
 			pos2 = line.background_table.pos2 or line.background_table.pos1 or Vec3(0,0)
-			size1 = line.background_table.size1 or Vec3(1066,600)
-			size2 = line.background_table.size2 or line.background_table.size1 or Vec3(1066,600)
+			size1 = line.background_table.size1 or Vec3(1067,600)
+			size2 = line.background_table.size2 or line.background_table.size1 or Vec3(1067,600)
 			color1 = {255,255,255,0}
 			color2 = {255,255,255,255}
 			duration = 1
@@ -294,7 +298,7 @@ function VN_AdvanceText()
 		SetSpriteAdditive('bg', 'bg0', IsSpriteAdditive(vn_prev.background))
 		--final thing
 		local pos = Vec3(0,0)
-		local size = Vec3(1066,600)
+		local size = Vec3(1067,600)
 		local color = {255,255,255,255}
 		if vn_prev.background_table then
 			if vn_prev.background_table.pos2 then pos = vn_prev.background_table.pos2 end
@@ -361,8 +365,35 @@ function VN_AdvanceText()
 	if line.func then
 		line.func()
 	end
+	
+	--choice
+	if line.choice then
+		vn_state = VN_STATE_CHOICE
+		VN_HideHUD(true)
+		LockControls(false)
+		for k, v in pairs(line.choice) do
+			local text = v.text or ''
+			local sprite = v.sprite or 'defaultbutton'
+			local pos = v.pos or Vec3(0, (k - 1) * 50)
+			local size = v.size or Vec3(350,32)
+			local name = 'JUMP'..tostring(k)..','..v.jump[1]..","..tostring(v.jump[2])
+			VN_CreateChoiceButton(name, text, sprite, pos, size)
+		end
+	end
+	--jump to scene (make sure this is last in this function)
+	if line.jump then
+		VN_Jump(line.jump[1], line.jump[2])
+	end
 end
 
+function VN_CreateChoiceButton(name, text, sprite, pos, size)
+	local control_frame = GetControlFrame()
+	SetControlFrame(0)
+	AddButtonControl("vnbuttons", name, sprite, ANCHOR_CENTER_CENTER, size, pos, 'Normal')
+	AddTextControl(name, 'buttontext', text, ANCHOR_CENTER_CENTER, Vec3(0,0), false, 'Normal')
+	SetButtonCallback("vnbuttons", name, 1)
+	SetControlFrame(control_frame)
+end
 
 function VN_Interpolate(table1, table2, alpha)
 	--ai generated to interpolate between two tables
@@ -401,22 +432,8 @@ function VN_Animator(parent, name, pos1, pos2, size1, size2, color1, color2, dur
 	SetControlSize(parent, name, size)
 	SetControlFrame(control_frame)
 	--BetterLog(duration_remaining)
-	--BetterLog(parent)
-	--BetterLog(name)
 	--BetterLog(pos)
-	--BetterLog(pos1)
-	--BetterLog(pos2)
-	--BetterLog(size1)
-	--BetterLog(size2)
 	--BetterLog(color)
-	--BetterLog(color1)
-	--BetterLog(color2)
-	--BetterLog(duration)
-	--BetterLog(duration_remaining)
-	--schedule next frame
-	--[[if duration_remaining ~= 0 then
-		ScheduleCall(0.04, VN_Animator, parent, name, pos1, pos2, size1, size2, color1, color2, duration, duration_remaining - 0.04)
-	end]]
 end
 function VN_Interrupt()
 	--interrupts all animations and text scrolling. Sets them to final state.
@@ -471,6 +488,12 @@ function VN_Interrupt()
 		end
 	end
 end
+function VN_Jump(scenetable, index)
+	vn_table = _G[scenetable]
+	vn_state_index = index - 1
+	VN_AdvanceText()
+end
+
 function VN_HideHUD(enable)
 	local control_frame = GetControlFrame()
 	SetControlFrame(0)
@@ -540,17 +563,38 @@ function IsSpriteAdditive(name)
 	end
 	return false
 end
+function VN_Split(inputstr, sep)
+    sep = sep or "%s"  -- default to whitespace
+    local t = {}
+    for str in string.gmatch(inputstr, "([^" .. sep .. "]+)") do
+        table.insert(t, str)
+    end
+    return t
+end
 --might as well add some basic sprites
 VN_AddSprite('black', 'ui/textures/FE-Panel', {0,0,0,1})
 VN_AddSprite('white', 'ui/textures/FE-Panel', nil, nil, true)
 VN_AddSprite('clear', 'ui/textures/FE-Panel', {0,0,0,0})
+table.insert(Sprites,
+{
+	Name = "defaultbutton",
+	States =
+	{
+		Normal = { Frames = {{ texture = "ui/textures/HUD/skin_base/tabs/Button-Long" .. "-A.dds" },},},
+		Rollover = { Frames = {{ texture = "ui/textures/HUD/skin_base/tabs/Button-Long" .. "-R.dds" },},},
+		Pressed = { Frames = {{ texture = "ui/textures/HUD/skin_base/tabs/Button-Long" .. "-S.dds" },},},
+		Disabled = { Frames = {{ texture = "ui/textures/HUD/skin_base/tabs/Button-Long" .. "-D.dds" },},},
+	},
+})
 --event hooks
 if OnKey then
 	Old_OnKey = OnKey
 end
 function OnKey(key, down)
+	--BetterLog(key)
+	--BetterLog(down)
 	vn_keysheld[key] = down
-	if key == "mouse left" and down then
+	if key == "mouse left" and down or key == "" then
 		if vn_state == VN_STATE_IDLE then
 			--advance text if mouse is clicked and vn state is idling
 			VN_Interrupt()
@@ -600,7 +644,9 @@ end
 function Update(frame)
 	--BetterLog(vn_state)
 	--skip
-	if vn_state == VN_STATE_VIDEO then
+	if vn_state == VN_STATE_CHOICE then
+		--do nothing
+	elseif vn_state == VN_STATE_VIDEO then
 		local progress = GetMovieProgress('', 'Movie')
 		if progress == 1 then
 			EndMovie('', 'Movie')
@@ -653,7 +699,7 @@ function OnUpdate(fake_delta)
 		end
 	end
 	if Old_OnUpdate then
-		Old_OnUpdate(frame)
+		Old_OnUpdate(fake_delta)
 	end
 end
 if OnRestart then
@@ -661,7 +707,6 @@ if OnRestart then
 end
 function OnRestart()
 	VN_EndScene()
-	
 	if Old_OnRestart then
 		Old_OnRestart()
 	end
@@ -676,6 +721,26 @@ function OnStreamComplete(seriesId, fromReplay)
 		vn_ambience_id = StartStream(vn_sound_path .. vn_current.ambience, vn_volume_ambience)
 	end
 	if Old_OnStreamComplete then
-		Old_OnStreamComplete()
+		Old_OnStreamComplete(seriesId, fromReplay)
+	end
+end
+
+if OnControlActivated then
+	Old_OnControlActivated = OnControlActivated
+end
+function OnControlActivated(name, code, doubleClick)
+	if string.sub(name, 1, 4) == 'JUMP' then
+		LockControls(true)
+		local control_frame = GetControlFrame()
+		SetControlFrame(0)
+		DeleteControl('vn','vnbuttons')
+		AddTextControl("vn", "vnbuttons", "", ANCHOR_TOP_LEFT, Vec3(533, -400), false, "")
+		SetControlFrame(control_frame)
+		vn_state = VN_STATE_IDLE
+		local namesplit = VN_Split(name, ',')
+		VN_Jump(namesplit[2],namesplit[3])
+	end
+	if Old_OnControlActivated then
+		Old_OnControlActivated(name, code, doubleClick)
 	end
 end
