@@ -77,8 +77,34 @@ scene1 =
     }
   },
   { movie = path .. "/assets/OP.ogv", hidehud = true}, --plays a video, advanced upon completion
+  { jump = {'scene2', 1} }, --jump to another scene table.
 }
 ```
 ## Effects/custom functions
 For a scene entry you can do `func = MyFunction` and the function will be called when advancing to that line.
 Included is an `effects.lua` file containing some basic effects. `dofile` this before the scene table.
+
+## Choices/Jump feature
+Jumping allows transitioning from one scene table to another (or to itself) at a specified index.
+`jump` is a table with the first value being the name of the scene table and the second being the index of that table to jump to.
+A choice entry essentially allows choosing a jump and is defined with a table like this. `text`, `sprite`, `pos`, `size`, and `jump` are available. But only `jump` is required. 
+
+```lua
+  choice =
+		{
+			{
+				text = "I guess so...",
+				--sprite = 'black',
+				--pos = Vec3(),
+				--size = Vec3(),
+				jump = {'scene', 1}, --jump required for choice
+			},
+			{
+				text = "Nahh",
+				--sprite = 'black',
+				--pos = Vec3(),
+				--size = Vec3(),
+				jump = {'inside_scene', 1},
+			},
+		}
+```
