@@ -344,6 +344,15 @@ function VN_AdvanceText()
 		SetControlFrame(control_frame)
 	end
 	
+	--handle camera
+	if line.camera then
+		CancelCameraMove()
+		local duration = line.camera[3] or 1
+		local easein =line.camera[4] or 0.5
+		SetNamedScreenByZoom('vnscreen',line.camera[1],line.camera[2])
+		RestoreScreen('vnscreen', duration, easein, false)
+	end
+	
 	--handle auto advance
 	if line.autoadvance and line.autoadvance > 0 then
 		ScheduleCall(line.autoadvance, VN_AdvanceText)
