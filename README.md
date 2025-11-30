@@ -59,6 +59,7 @@ scene1 =
       color2 = {96,96,96,255},
       duration = 3,
       persist = false, --continue playing the animation after text advance?
+      clear = false, --clears the 2nd background. Set to true when using a transparent background.
     },
     sprites = --list of sprites to show on screen. It works almost the same as the background_table
     {
@@ -109,7 +110,7 @@ A choice entry essentially allows choosing a jump and is defined with a table li
 		}
 ```
 ## Camera move feature
-Moves the forts camera. Internally runs SetNamedScreenByZoom and RestoreScreen. Make sure to remove the background first (use the 'clear' sprite).
+Moves the forts camera. Internally runs SetNamedScreenByZoom and RestoreScreen. Make sure to remove the background first (set the image's `background_table.color2` value to `{255,255,255,0}` and set the `background_table.clear` value to `true`).
 ```lua
 camera = {Vec3(4000,2000), 3} --parameters: vec3 position, float zoom (1-25), optional float duration (seconds), optional float easePeriod (0-1).
 ```
