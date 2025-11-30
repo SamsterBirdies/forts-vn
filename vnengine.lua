@@ -253,11 +253,13 @@ function VN_AdvanceText()
 		local color2 = {255,255,255,255}
 		local duration = 1
 		local persist = false
+		local clear = false
 		if line.background_table then
 			pos1 = line.background_table.pos1 or Vec3(0,0)
 			pos2 = line.background_table.pos2 or line.background_table.pos1 or Vec3(0,0)
 			size1 = line.background_table.size1 or Vec3(1067,600)
 			size2 = line.background_table.size2 or line.background_table.size1 or Vec3(1067,600)
+			clear = line.background_table.clear or false
 			color1 = {255,255,255,0}
 			color2 = {255,255,255,255}
 			duration = 1
@@ -275,8 +277,6 @@ function VN_AdvanceText()
 		vn_prev.background_table = vn_current.background_table
 		vn_current.background = background
 		vn_current.background_table = line.background_table or {}
-		--BetterLog(color1)
-		--BetterLog(color2)
 		VN_Animator('bg', 'bg1', pos1, pos2, size1, size2, color1, color2, duration)
 		vn_animations.background = 
 		{
@@ -292,13 +292,15 @@ function VN_AdvanceText()
 			duration_remaining = duration,
 			persist = persist,
 		}
-		--BetterLog(vn_animations.background)
 		--handle background background image
 		
 		--move previous sprite to the behind thingie
-		--BetterLog(vn_prev.background)
-		SetControlSpriteByParent('bg', 'bg0', vn_prev.background)
-		SetSpriteAdditive('bg', 'bg0', IsSpriteAdditive(vn_prev.background))
+		if clear then
+			SetControlSpriteByParent('bg', 'bg0', 'clear')
+		else
+			SetControlSpriteByParent('bg', 'bg0', vn_prev.background)
+			SetSpriteAdditive('bg', 'bg0', IsSpriteAdditive(vn_prev.background))
+		end
 		--final thing
 		local pos = Vec3(0,0)
 		local size = Vec3(1067,600)
