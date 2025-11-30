@@ -108,3 +108,8 @@ A choice entry essentially allows choosing a jump and is defined with a table li
 			},
 		}
 ```
+## Camera move feature
+Moves the forts camera. Internally runs SetNamedScreenByZoom and RestoreScreen. Make sure to remove the background first (use the 'clear' sprite).
+```lua
+camera = {Vec3(4000,2000), 3} --parameters: vec3 position, float zoom (1-25), optional float duration (seconds), optional float easePeriod (0-1).
+```
