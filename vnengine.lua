@@ -1,18 +1,34 @@
 -- Script to help aid in making VN campaign segments in forts
 
---configurables
-vn_text_speed = 100 --characters per second
-vn_textbox_opacity = 0.25
+--//----- Configurable values -----//--
+
+--volumes
 vn_volume_voice = 1
 vn_volume_music = 0.2
 vn_volume_ambience = 0.2
 vn_volume_sfx = 0.5
+--text
+vn_text_speed = 100 --characters per second
+vn_textbox_opacity = 0.25
 vn_skip_speed = 1 --smaller is faster
 vn_auto_quotemarks = false --automatically add quotations marks to named lines
-vn_overlay_path = path .. "/overlay"
+vn_max_log = 100 --maximum lines to store for the backlog.
+--texture/sprite paths
+vn_overlay_path = path .. "/overlay" --texture for the textbox overlay.
+vn_backlog_path = path .. "/backlog" --texture for the backlog overlay.
 vn_sound_system = 'stream' --Use 'stream' for simplicity, it just plays the sound file. 'effect' if you need it with effects.
 vn_sound_path = path .. "/assets/" --set to wherever the sounds are 
 vn_button_sprite = "defaultbutton" --set the default button sprite.
+--sound effect paths
+vn_effect_backlog_open = "ui/hud/expanded_open"
+vn_effect_backlog_close = "ui/hud/expanded_close"
+vn_effect_backlog_scroll = "effects/click"
+vn_effect_overlay_open = ""
+vn_effect_overlay_close = ""
+vn_effect_choice_appear = "ui/hud/stop_sim"
+
+--//----- End of configurable values -----//--
+
 --constants
 VN_STATE_INACTIVE = 0 --no scene playing
 VN_STATE_IDLE = 1 --awaiting a click. (includes animations though i wish for this to not be the case
@@ -22,6 +38,7 @@ VN_STATE_CHOICE = 4 --disable advancing controls.
 
 VN_WINDOW_ANCHOR = {200, -100}
 VN_PAD = 20
+
 --globals
 vn_keysheld = {}
 screen_height = 600 --better to use my function for getting screen height
@@ -32,6 +49,7 @@ vn_state = VN_STATE_INACTIVE --used for tracking what is currently happening
 vn_state_index = 0 --track line of text
 vn_state_index_index = 0 --track the character in the line
 vn_text = "" --just stores current text line
+vn_text_history = {} --records lines for the backlog. (not the most efficient way to do this, but easiest for noob coder like me)
 vn_line_time = 0 --tracks how long has been spent in the line. useful for animations and text reveal
 vn_delta = 0 --tracks delta
 vn_prevtime = 0 --track previous match time
@@ -41,6 +59,8 @@ vn_ambience_id = 0
 vn_sfx_id = 0
 vn_table = {}
 vn_hud_open = true --right click to hide hud.
+vn_backlog_open = false --scroll up to show backlog.
+vn_backlog_index = 0 --tracks how far up history to display
 vn_menu_open = false --if menu is opened.
 vn_animations = 
 {
@@ -113,6 +133,18 @@ function VN_StartScene(scene_table)
 	AddTextControl("vntextbox", "vn_text", "", ANCHOR_TOP_LEFT, Vec3(0, 0), false, "Normal")
 	AddTextControl("vntextbox", "vn_name", "", ANCHOR_BOTTOM_LEFT, Vec3(0, -VN_PAD), false, "Normal")
 	SetWordWrap("vntextbox", "vn_text", true)
+	--backlog parent 
+	--AddTextControl("vn", "backlog", "", ANCHOR_TOP_LEFT, Vec3(0, -screen_height), false, "")
+	AddSpriteControl("vn", "backlog", vn_backlog_path, ANCHOR_TOP_LEFT, Vec3(800, screen_height),  Vec3(130, -screen_height), false)
+	AddTextControl("backlog", "title", "Backlog", ANCHOR_TOP_CENTER, Vec3(400, VN_PAD), false, "Bold")
+	for i = 0, 3 do
+		AddSpriteControl("backlog", "textbox" .. tostring(i), "clear", ANCHOR_TOP_LEFT, Vec3(666, 100), Vec3(70, i * (100 + VN_PAD * 2) + VN_PAD * 4), false)
+		AddTextControl("textbox" .. tostring(i), "text", "" , ANCHOR_TOP_LEFT, Vec3(0, 0), false, "Normal")
+		AddTextControl("textbox" .. tostring(i), "name", "SamsterBirdies", ANCHOR_TOP_LEFT, Vec3(0, -VN_PAD), false, "")
+		SetWordWrap("textbox" .. tostring(i), "text", true)
+		SetControlColour("textbox" .. tostring(i), "name", Colour(178,178,220,255))
+	end
+	ShowControl('vn', 'backlog', false)
 	--hide bottom on screens not 16:9
 	AddSpriteControl("vn", "aspectblock", 'black', ANCHOR_TOP_LEFT, Vec3(1067, 1067), Vec3(0, 0), false)
 	
@@ -149,6 +181,8 @@ function VN_EndScene()
 	vn_table = {}
 	vn_hud_open = true
 	vn_menu_open = false
+	vn_backlog_open = false
+	vn_backlog_index = 0
 	vn_animations = 
 	{
 		background = {},
@@ -190,6 +224,16 @@ function VN_AdvanceText()
 		vn_text = ''
 	end
 	vn_current.text = vn_text
+	
+	--add to backlog history if text
+	if vn_text ~= "" then
+		table.insert(vn_text_history, 1, {name, vn_text})
+		--limit backlog to configurable number of lines
+		if #vn_text_history == vn_max_log then
+			table.remove(vn_text_history, vn_max_log)
+		end
+	end
+	
 	--handle sounds
 	if vn_sound_system == 'effect' then
 		--effect based sound spawning.
@@ -362,10 +406,12 @@ function VN_AdvanceText()
 	
 	--hud toggler
 	if line.hidehud then
-		VN_HideHUD(true)
+		VN_HideTextbox(true)
 	else
-		VN_HideHUD(false)
+		VN_HideTextbox(false)
 	end
+	--definitly dont have backlog if the text somehow advances
+	VN_HideBacklog(true)
 	
 	--movie player
 	if line.movie then
@@ -393,6 +439,7 @@ function VN_AdvanceText()
 			local name = 'JUMP'..tostring(k)..','..v.jump[1]..","..tostring(v.jump[2])
 			VN_CreateChoiceButton(name, text, sprite, pos, size)
 		end
+		SpawnEffect(vn_effect_choice_appear, Vec3(0,0))
 	end
 	--jump to scene (make sure this is last in this function)
 	if line.jump then
@@ -424,7 +471,7 @@ end
 function VN_Animator(parent, name, pos1, pos2, size1, size2, color1, color2, duration, duration_remaining)
 	duration_remaining = duration_remaining or duration
 	--quit if duration is over
-	if duration_remaining < 0.04 then
+	if duration_remaining < vn_delta then
 		duration_remaining = 0
 	end
 	--fix divide by zero issue
@@ -508,20 +555,48 @@ function VN_Jump(scenetable, index)
 	VN_AdvanceText()
 end
 
-function VN_HideHUD(enable)
+function VN_HideTextbox(enable)
 	local control_frame = GetControlFrame()
 	SetControlFrame(0)
 	if enable then
-		SetControlAbsolutePos('vn', 'overlay', Vec3(0, 9000))
-		SetControlAbsolutePos('vn', 'vntextbox', Vec3(0, 9000))
+		ShowControl('vn', 'overlay', false)
+		ShowControl('vn', 'vntextbox', false)
 		vn_hud_open = false
 	else
-		SetControlRelativePos('vn', 'overlay', Vec3(0, -140))
-		SetControlRelativePos('vn', 'vntextbox', Vec3(VN_WINDOW_ANCHOR[1], VN_WINDOW_ANCHOR[2]))
+		ShowControl('vn', 'overlay', true)
+		ShowControl('vn', 'vntextbox', true)
 		vn_hud_open = true
 	end
 	SetControlFrame(control_frame)
 end
+function VN_HideBacklog(enable)
+	local control_frame = GetControlFrame()
+	SetControlFrame(0)
+	if enable then
+		ShowControl('vn', 'backlog', false)
+		vn_backlog_open = false
+	else
+		ShowControl('vn', 'backlog', true)
+		vn_backlog_open = true
+	end
+	SetControlFrame(control_frame)
+end
+function VN_HideHUD(enable)
+	VN_HideTextbox(enable)
+	VN_HideBacklog(enable)
+end
+function VN_BacklogRefresh()
+	for i = 0, 3 do
+		if vn_text_history[vn_backlog_index + 4 - i] then
+			SetControlText("textbox" .. tostring(i), "text", vn_text_history[vn_backlog_index + 4 - i][2])
+			SetControlText("textbox" .. tostring(i), "name", vn_text_history[vn_backlog_index + 4 - i][1])
+		else
+			SetControlText("textbox" .. tostring(i), "text", "")
+			SetControlText("textbox" .. tostring(i), "name", "")
+		end
+	end
+end
+
 function VN_UpdateVolume()
 	--fmod events
 	SetGlobalAudioParameter('volume_music', vn_volume_music)
@@ -607,46 +682,87 @@ end
 function OnKey(key, down)
 	--BetterLog(key)
 	--BetterLog(down)
-	vn_keysheld[key] = down
-	if key == "mouse left" and down or key == "" then
-		if vn_state == VN_STATE_IDLE then
-			--advance text if mouse is clicked and vn state is idling
-			VN_Interrupt()
-			VN_AdvanceText()
-		elseif vn_state == VN_STATE_RUN then
-			--if text is scrolling then skip revealing the text and skip animations
-			VN_Interrupt()
-		elseif vn_state == VN_STATE_VIDEO then
-			EndMovie('', 'Movie')
-			ShowControl('', 'Movie', false)
-			VN_AdvanceText()
-		end
-	end
-	if key == "mouse right" and down then
-		if vn_state == VN_STATE_IDLE or vn_state == VN_STATE_RUN then
-			--toggle hud showing
-			if vn_hud_open then
-				VN_HideHUD(true)
-			else
-				VN_HideHUD(false)
+	if vn_state ~= VN_STATE_INACTIVE then
+	
+		vn_keysheld[key] = down
+		--general do the thing key
+		if key == "mouse left" and down 
+			or key == " " and down
+			or key == "enter" and down
+			or key == "mouse wheel" and down
+		then
+			if vn_backlog_open then
+				if key == "mouse wheel" and down and vn_backlog_index > 0 then
+					vn_backlog_index = vn_backlog_index - 1
+					VN_BacklogRefresh()
+					SpawnEffect(vn_effect_backlog_scroll, Vec3(0,0))
+				else
+					VN_HideBacklog(true)
+					VN_HideTextbox(false)
+					SpawnEffect(vn_effect_backlog_close, Vec3(0,0))
+				end
+			elseif vn_state == VN_STATE_IDLE then
+				--advance text if mouse is clicked and vn state is idling
+				VN_Interrupt()
+				VN_AdvanceText()
+			elseif vn_state == VN_STATE_RUN then
+				--if text is scrolling then skip revealing the text and skip animations
+				VN_Interrupt()
+			elseif vn_state == VN_STATE_VIDEO then
+				EndMovie('', 'Movie')
+				ShowControl('', 'Movie', false)
+				VN_AdvanceText()
 			end
 		end
-	end
-	--debug button
-	if key == '/' and down then
-		Log('-=-=--=-=-=- Dumping info at index '.. tostring(vn_state_index)..' -=-=-=-=-=-=-')
-		Log('vn_state: ' .. tostring(vn_state))
-		Log('vn_current:')
-		BetterLog(vn_current)
-		Log('vn_prev:')
-		BetterLog(vn_prev)
-		Log('vn_animations:')
-		BetterLog(vn_animations)
-		Log('sound ids')
-		BetterLog(vn_voice_id)
-		BetterLog(vn_music_id)
-		BetterLog(vn_ambience_id)
-		BetterLog(vn_sfx_id)
+		--hide key
+		if key == "mouse right" and down then
+			if vn_state == VN_STATE_IDLE or vn_state == VN_STATE_RUN then
+				--toggle hud showing
+				if vn_backlog_open then
+					VN_HideBacklog(true)
+					VN_HideTextbox(false)
+					SpawnEffect(vn_effect_backlog_close, Vec3(0,0))
+				elseif vn_hud_open then
+					VN_HideTextbox(true)
+					SpawnEffect(vn_effect_overlay_close, Vec3(0,0))
+				else
+					VN_HideTextbox(false)
+					SpawnEffect(vn_effect_overlay_open, Vec3(0,0))
+				end
+			end
+		end
+		--scroll up (open backlog or scroll in it)
+		if key == "mouse wheel" and not down then
+			if vn_backlog_open == false then
+				vn_backlog_index = 0
+				VN_HideBacklog(false)
+				VN_HideTextbox(true)
+				VN_BacklogRefresh()
+				SpawnEffect(vn_effect_backlog_open, Vec3(0,0))
+			else
+				if vn_backlog_index < #vn_text_history - 3 then
+					vn_backlog_index = vn_backlog_index + 1
+					VN_BacklogRefresh()
+					SpawnEffect(vn_effect_backlog_scroll, Vec3(0,0))
+				end
+			end
+		end
+		--debug button
+		if key == '/' and down then
+			Log('-=-=--=-=-=- Dumping info at index '.. tostring(vn_state_index)..' -=-=-=-=-=-=-')
+			Log('vn_state: ' .. tostring(vn_state))
+			Log('vn_current:')
+			BetterLog(vn_current)
+			Log('vn_prev:')
+			BetterLog(vn_prev)
+			Log('vn_animations:')
+			BetterLog(vn_animations)
+			Log('sound ids')
+			BetterLog(vn_voice_id)
+			BetterLog(vn_music_id)
+			BetterLog(vn_ambience_id)
+			BetterLog(vn_sfx_id)
+		end
 	end
 	if Old_OnKey then
 		Old_OnKey(key, down)
